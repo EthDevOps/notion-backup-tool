@@ -1,0 +1,201 @@
+using OpenQA.Selenium;
+using OpenQA.Selenium.Chrome;
+using OpenQA.Selenium.Remote;
+using OpenQA.Selenium.Support.UI;
+
+namespace NotionBackupTool;
+
+internal class NotionWebsitePuppeteer
+{
+    private readonly string _seleniumHost;
+    private IWebDriver _driver;
+    private readonly string _username;
+    private readonly string _password;
+
+    public string MailHost { get; set; }
+    public string MailUser { get; set; }
+    public string MailPassword { get; set; }
+    public NotionWebsitePuppeteer(string seleniumHost, string notionUsername, string notionPassword)
+    {
+        _seleniumHost = seleniumHost;
+        _username = notionUsername;
+        _password = notionPassword;
+
+    }
+
+    private void Login()
+    {
+        bool FirstLoginStep()
+        {
+            bool needsLoginCode = false;
+            Console.WriteLine("\tNavigating to login page...");
+            // Navigate to Notes GitHub auth
+            _driver.Navigate().GoToUrl($"https://notion.so/login");
+
+            Console.WriteLine("\tSleep 2.5sec");
+            Thread.Sleep(2500);
+            // Login to GitHub
+            Console.WriteLine("\tEntering credentials...");
+            IWebElement loginInput = _driver.FindElement(By.Id("notion-email-input-2"));
+            loginInput.SendKeys(_username);
+        
+            IWebElement nextBtn = _driver.FindElement(By.XPath("//form/div[contains(text(), 'Continue')]"));
+            nextBtn.Click();
+
+            Console.WriteLine("\tSleep 10sec");
+            Thread.Sleep(10000);
+            
+            // Check if we need to use a login code
+            try
+            {
+                IWebElement loginCodeBtn =
+                    _driver.FindElement(By.XPath("//form/div[contains(text(), 'Continue with login code')]"));
+                if (loginCodeBtn != null)
+                {
+                    needsLoginCode = true;
+                }
+            }
+            catch
+            {
+                Console.WriteLine("Not in explicit login code mode");
+            }
+
+            return needsLoginCode;
+
+        }
+
+        // Instantiate a ChromeDriver
+        var options = new ChromeOptions();
+        options.AddArgument("--headless=new");
+
+        _driver = new RemoteWebDriver(new Uri(_seleniumHost), options);
+        //_driver = new ChromeDriver();
+        WebDriverWait wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(120));
+
+        bool needsLoginCode = FirstLoginStep();
+
+        try
+        {
+            IWebElement loginError =
+                _driver.FindElement(By.XPath("//div[contains(text(), 'You must login with an email login code')]"));
+            if (loginError != null)
+            {
+                // Need to reload site and restart to enter login code mode
+                Console.WriteLine("Need to restart login.");
+                Thread.Sleep(3000);
+                needsLoginCode = FirstLoginStep();
+            }
+        }
+        catch
+        {
+            Console.WriteLine("No login code error. continue.");
+        }
+
+        if (needsLoginCode)
+        {
+            Console.WriteLine("Trying login-code login...");
+            // Query mail for login code
+
+            MailGrabber mg = new MailGrabber(MailHost, MailUser, MailPassword);
+            string loginUrl = "";
+            bool foundUrl = false;
+
+            while (!foundUrl)
+            {
+                Thread.Sleep(2000);
+                Console.WriteLine("Waiting for login code email...");
+                List<string> loginUrls = mg.FindUrl("notify@mail.notion.so", "https://www\\.notion\\.so/loginwithemail.*?(?=\")");
+                
+                if (loginUrls.Count == 0) continue;
+                
+                loginUrl = loginUrls.First();
+                foundUrl = true;
+                mg.Purge("notify@mail.notion.so");
+
+            }
+
+            Console.WriteLine("Logging in using URL...");
+            _driver.Navigate().GoToUrl(loginUrl);
+            Thread.Sleep(5000);
+            
+
+        }
+        else
+        {
+            Console.WriteLine("Trying password login...");
+            try
+            {
+                IWebElement passInput = _driver.FindElement(By.Id("notion-password-input-1"));
+                passInput.SendKeys(_password);
+
+                Console.WriteLine("\tSending login...");
+                IWebElement loginBtn = _driver.FindElement(By.XPath("//form/div[contains(text(), 'Continue with password')]"));
+                loginBtn.Click();
+            }
+            catch
+            {
+                Console.WriteLine("bad login");
+            }
+            
+        }
+        
+    }
+    
+    public void TriggerExport(List<string> workspaceSlug)
+    {
+        Console.WriteLine("Login...");
+        Login();
+
+        foreach (string ws in workspaceSlug)
+        {
+            Thread.Sleep(10000);
+            Console.WriteLine($"Navigate to workspace {ws}...");
+            _driver.Navigate().GoToUrl($"https://notion.so/{ws}");
+            
+            Thread.Sleep(5000);
+            Console.WriteLine("Navigating to Export button...");
+            IWebElement nextBtn = _driver.FindElement(By.XPath("//nav//div[contains(text(), 'Settings')]"));
+            nextBtn.Click();
+            
+            Thread.Sleep(3000);
+            _driver.FindElement(By.XPath("//div[text() = 'Settings']")).Click();
+            
+            Thread.Sleep(3000);
+            _driver.FindElement(By.XPath("//div[text() = 'Export all workspace content']")).Click();
+            
+            Thread.Sleep(3000);
+            Console.WriteLine("Trigger Export...");
+            _driver.FindElement(By.XPath("//div[text() = 'Export']")).Click();
+
+            Console.WriteLine($"Export running for {ws}");
+        }
+      
+        // sleeping to let export init
+        Console.WriteLine("Waiting for export to settle...");
+        Thread.Sleep(15000);
+        _driver.Close();
+    }
+    
+    public Cookie GrabSessionCookies()
+    {
+        Login();
+        //wait.Until(wd => wd.FindElement(By.Id("notion-app")));
+        Console.WriteLine("\tSleep 15sec");
+        Thread.Sleep(15000);
+        Console.WriteLine("Navigate to file URL...");
+        _driver.Navigate().GoToUrl($"https://file.notion.so/f/");
+        
+        // Wait for return to HackMD
+        
+        Console.WriteLine("\tGrabbing delicious Cookies...");
+        // grab cookies
+
+        var cookie = _driver.Manage().Cookies.GetCookieNamed("file_token");
+        
+
+        // Close the driver
+        _driver.Quit();
+
+        return cookie;
+    }
+}
