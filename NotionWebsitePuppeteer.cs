@@ -25,6 +25,34 @@ internal class NotionWebsitePuppeteer
 
     private void Login()
     {
+        void TryLoginWithLink()
+        {
+            Console.WriteLine("Trying login-code login...");
+            // Query mail for login code
+
+            MailGrabber mg = new MailGrabber(MailHost, MailUser, MailPassword);
+            string loginUrl = "";
+            bool foundUrl = false;
+
+            while (!foundUrl)
+            {
+                Thread.Sleep(2000);
+                Console.WriteLine("Waiting for login code email...");
+                List<string> loginUrls = mg.FindUrl("notify@mail.notion.so", "https://www\\.notion\\.so/loginwithemail.*?(?=\")");
+                
+                if (loginUrls.Count == 0) continue;
+                
+                loginUrl = loginUrls.First();
+                foundUrl = true;
+                mg.Purge("notify@mail.notion.so","login code");
+
+            }
+
+            Console.WriteLine("Logging in using URL...");
+            _driver.Navigate().GoToUrl(loginUrl);
+            Thread.Sleep(5000);
+        }
+
         bool FirstLoginStep()
         {
             bool needsLoginCode = false;
@@ -93,32 +121,7 @@ internal class NotionWebsitePuppeteer
 
         if (needsLoginCode)
         {
-            Console.WriteLine("Trying login-code login...");
-            // Query mail for login code
-
-            MailGrabber mg = new MailGrabber(MailHost, MailUser, MailPassword);
-            string loginUrl = "";
-            bool foundUrl = false;
-
-            while (!foundUrl)
-            {
-                Thread.Sleep(2000);
-                Console.WriteLine("Waiting for login code email...");
-                List<string> loginUrls = mg.FindUrl("notify@mail.notion.so", "https://www\\.notion\\.so/loginwithemail.*?(?=\")");
-                
-                if (loginUrls.Count == 0) continue;
-                
-                loginUrl = loginUrls.First();
-                foundUrl = true;
-                mg.Purge("notify@mail.notion.so");
-
-            }
-
-            Console.WriteLine("Logging in using URL...");
-            _driver.Navigate().GoToUrl(loginUrl);
-            Thread.Sleep(5000);
-            
-
+            TryLoginWithLink();
         }
         else
         {
@@ -135,6 +138,7 @@ internal class NotionWebsitePuppeteer
             catch
             {
                 Console.WriteLine("bad login");
+                TryLoginWithLink();
             }
             
         }

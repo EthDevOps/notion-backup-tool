@@ -58,28 +58,28 @@ internal class MailGrabber
 
     }
 
-    public void Purge(string sender) 
+    public void Purge(string sender, string subject)
     {
-        using (var client = new ImapClient())
-        {
-            client.ServerCertificateValidationCallback = (s, c, h, e) => true;
-            client.Connect(_host, 993, true);
-            client.Authenticate(_user, _password);
+        using var client = new ImapClient();
+        client.ServerCertificateValidationCallback = (s, c, h, e) => true;
+        client.Connect(_host, 993, true);
+        client.Authenticate(_user, _password);
 
-            var inbox = client.Inbox;
-            inbox.Open(MailKit.FolderAccess.ReadWrite);
-            var purgeFolder = client.GetFolder("notion-backup");
+        var inbox = client.Inbox;
+        inbox.Open(MailKit.FolderAccess.ReadWrite);
+        var purgeFolder = client.GetFolder("notion-backup");
             
-            for (int i = 0; i < inbox.Count; i++)
-            {
-                MimeMessage? message = inbox.GetMessage(i);
+        for (int i = 0; i < inbox.Count; i++)
+        {
+            MimeMessage? message = inbox.GetMessage(i);
 
-                if ((message.From[0] as MailboxAddress)?.Address != sender)
-                    continue;
+            if ((message.From[0] as MailboxAddress)?.Address != sender)
+                continue;
 
-                inbox.MoveTo(i, purgeFolder);
-            }
+            if (!message.Subject.Contains(subject))
+                continue;
 
+            inbox.MoveTo(i, purgeFolder);
         }
     }
 }

@@ -135,8 +135,8 @@ class Program
             }
             
             // Purge Emails
-            mail.Purge("export-noreply@mail.notion.so");
-            mail.Purge("notify@mail.notion.so");
+            mail.Purge("export-noreply@mail.notion.so","workspace export");
+            mail.Purge("notify@mail.notion.so", "workspace export");
 
             
         }
