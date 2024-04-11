@@ -23,7 +23,7 @@ env:
 jobs:
   build:
     #runs-on: ubuntu-latest
-    runs-on: [self-hosted, size-m]
+    runs-on: [self-hosted, size-s]
     permissions:
       contents: read
       packages: write
