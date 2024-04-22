@@ -1,8 +1,4 @@
-﻿using System.Runtime;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Remote;
+﻿using OpenQA.Selenium;
 
 namespace NotionBackupTool;
 
@@ -20,8 +16,10 @@ class Program
         return string.IsNullOrEmpty(envVar) ? defaultValue : envVar;
     }
     
-    static async Task Main(string[] args)
+    static async Task Main()
     {
+        string mode = GetConfig("MODE");
+
         string webDriverEndpoint = GetConfig("WEBDRIVER_URL", "http://localhost:4444");
 
         string s3Host = GetConfig("S3_HOST");
@@ -37,10 +35,12 @@ class Program
         string mailPassword = GetConfig("IMAP_PASSWORD");
         string cachePath = GetConfig("CACHE_PATH");
 
-        string mode = GetConfig("MODE");
         string temporaryDir = GetConfig("TMP_DIR");
         string gpgPublicKey = GetConfig("GPG_PUBKEY_FILE");
-        
+
+        List<Workspace> workspaces = GetConfig("WORKSPACES").Split(',').Select(w => w.Split(':')).Select(ws => new Workspace { Name = ws[0], Id = ws[1] }).ToList();
+
+
         var pingHttp = new HttpClient();
 
         string hcUrl = GetConfig("HEALTHCHECK_URL");
@@ -93,8 +93,8 @@ class Program
             // Look in Mail inbox for completed exports
             Console.WriteLine("Checking emails...");
             MailGrabber mail = new MailGrabber(mailHost, mailUser, mailPassword);
-            List<string> downloadUrls = mail.FindUrl("export-noreply@mail.notion.so", @"https://file\.notion\.so/.+\.zip");
-            downloadUrls.AddRange(mail.FindUrl("notify@mail.notion.so", @"https://file\.notion\.so/.+\.zip"));
+            List<Tuple<string, string>> downloadUrls = mail.FindUrl("export-noreply@mail.notion.so", @"https://file\.notion\.so/.+\.zip","https://www\\.notion\\.so/space/[a-z0-9]+");
+            downloadUrls.AddRange(mail.FindUrl("notify@mail.notion.so", @"https://file\.notion\.so/.+\.zip","https://www\\.notion\\.so/space/[a-z0-9]+"));
 
             // Download the exports using the session cookies
 
@@ -102,35 +102,45 @@ class Program
             using HttpClient hc = new HttpClient();
 
             int ct = 0;
-            foreach (string url in downloadUrls)
+            foreach (Tuple<string, string> urls in downloadUrls)
             {
                 Console.WriteLine($"Processing download #{ct}");
-                var req = new HttpRequestMessage(HttpMethod.Get, url);
+                var req = new HttpRequestMessage(HttpMethod.Get, urls.Item1);
                 req.Headers.Add("cookie", $"file_token={fileCookieValue}");
 
                 var response = await hc.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
                 response.EnsureSuccessStatusCode();
 
                 string datetime = DateTime.UtcNow.ToString("s").Replace(':', '-');
-                string dlFilename = Path.Combine(temporaryDir, $"notion-{ct}-{datetime}.zip");
+                
+                // map workspace
+                string workspaceId = urls.Item2.Split('/').Last();
+                string workspaceName = workspaces.FirstOrDefault(x => x.Id == workspaceId)?.Name ?? String.Empty;
+
+                if (string.IsNullOrEmpty(workspaceName))
+                {
+                    Console.WriteLine($"Warning: Workspace ID {workspaceId} unknown");
+                    workspaceName = workspaceId;
+                }
+                
+                string dlFilename = Path.Combine(temporaryDir, $"notion-{workspaceName}-{datetime}.zip");
                 Console.WriteLine("Downloading...");
                 await using Stream dlStream = await response.Content.ReadAsStreamAsync();
                 await using var fileStream = File.Create(dlFilename);
                 await dlStream.CopyToAsync(fileStream, 1048576);
                 await fileStream.FlushAsync();
                 fileStream.Close();
-            
+                
                 // Encrypt backup
                 FileProcessor fp = new FileProcessor();
                 Console.WriteLine("==> Encrypting...");
                 string encryptedFile = $"{dlFilename}.enc";
-                fp.EncryptFileSymetric(dlFilename, encryptedFile, gpgPublicKey);
+                await fp.EncryptFilePgp(dlFilename,  gpgPublicKey, encryptedFile);
             
                 // Upload to S3
                 Console.WriteLine("==> Send to S3 storage");
                 var s3 = new S3Uploader(s3Host, s3AccessKey, s3SecretKey, s3Bucket);
                 await s3.UploadFileAsync(encryptedFile);
-                await s3.UploadFileAsync($"{encryptedFile}.key");
                 ct++;
             }
             
@@ -142,12 +152,9 @@ class Program
         }
         else if (mode == "trigger")
         {
-            string workspace = GetConfig("WORKSPACES");
-            List<string> workspaces = new List<string>(workspace.Split(","));
-            grabber.TriggerExport(workspaces);
+            grabber.TriggerExport(workspaces.Select(x => x.Name).ToList());
         }
 
         Console.WriteLine("done.");
     }
-    
 }

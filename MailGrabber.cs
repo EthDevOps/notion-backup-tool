@@ -17,42 +17,49 @@ internal class MailGrabber
         _password = password;
     }
     
-    internal List<string> FindUrl(string sender, string regexPattern)
+    internal List<Tuple<string,string>> FindUrl(string sender, string regexPatternDownload, string regexPatternWorkspace)
     {
-        List<string> urls = new List<string>();
-        using (var client = new ImapClient())
+        using var client = new ImapClient();
+        client.ServerCertificateValidationCallback = (s, c, h, e) => true;
+        client.Connect(_host, 993, true);
+        client.Authenticate(_user, _password);
+        List<Tuple<string, string>> urls = new List<Tuple<string, string>>();
+
+        var inbox = client.Inbox;
+        inbox.Open(MailKit.FolderAccess.ReadOnly);
+
+        for (int i = 0; i < inbox.Count; i++)
         {
-            client.ServerCertificateValidationCallback = (s, c, h, e) => true;
-            client.Connect(_host, 993, true);
-            client.Authenticate(_user, _password);
+            MimeMessage? message = inbox.GetMessage(i);
+                
+            if((message.From[0] as MailboxAddress)?.Address != sender)
+                continue;
+                
+            string body = message.HtmlBody;
 
-            var inbox = client.Inbox;
-            inbox.Open(MailKit.FolderAccess.ReadOnly);
+            // Regex to extract URLs
+            var regexDl = new Regex(regexPatternDownload, RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline );
+            var regexWorkspace = new Regex(regexPatternWorkspace, RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline );
 
-            for (int i = 0; i < inbox.Count; i++)
+            string dlUrl = String.Empty;
+            string workspaceUrl = String.Empty;
+            // Report on each match.
+            foreach (Match match in regexDl.Matches(body))
             {
-                MimeMessage? message = inbox.GetMessage(i);
-                
-                if((message.From[0] as MailboxAddress)?.Address != sender)
-                    continue;
-                
-                string body = message.HtmlBody;
-
-                // Regex to extract URLs
-                var regex = new Regex(regexPattern, RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline );
-
-                // Find matches
-                MatchCollection matches = regex.Matches(body);
-
-                // Report on each match.
-                foreach (Match match in matches)
-                {
-                    urls.Add(match.Value);
-                }
+                dlUrl = match.Value;
+                break;
             }
-
-            client.Disconnect(true);
+                
+            foreach (Match match in regexWorkspace.Matches(body))
+            {
+                workspaceUrl = match.Value;
+                break;
+            }
+            
+            urls.Add(new Tuple<string, string>(dlUrl,workspaceUrl));
         }
+
+        client.Disconnect(true);
 
         return urls;
 

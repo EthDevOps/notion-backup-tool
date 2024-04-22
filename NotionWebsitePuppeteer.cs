@@ -38,11 +38,12 @@ internal class NotionWebsitePuppeteer
             {
                 Thread.Sleep(2000);
                 Console.WriteLine("Waiting for login code email...");
-                List<string> loginUrls = mg.FindUrl("notify@mail.notion.so", "https://www\\.notion\\.so/loginwithemail.*?(?=\")");
+                List<Tuple<string, string>> loginUrls = mg.FindUrl("notify@mail.notion.so",
+                    "https://www\\.notion\\.so/loginwithemail.*?(?=\")", String.Empty);
                 
                 if (loginUrls.Count == 0) continue;
                 
-                loginUrl = loginUrls.First();
+                loginUrl = loginUrls.First().Item1;
                 foundUrl = true;
                 mg.Purge("notify@mail.notion.so","login code");
 
