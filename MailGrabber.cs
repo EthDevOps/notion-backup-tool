@@ -55,8 +55,11 @@ internal class MailGrabber
                 workspaceUrl = match.Value;
                 break;
             }
-            
-            urls.Add(new Tuple<string, string>(dlUrl,workspaceUrl));
+
+            if (!string.IsNullOrEmpty(dlUrl) && !string.IsNullOrEmpty(workspaceUrl))
+            {
+                urls.Add(new Tuple<string, string>(dlUrl, workspaceUrl));
+            }
         }
 
         client.Disconnect(true);

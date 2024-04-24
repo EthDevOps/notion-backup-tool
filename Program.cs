@@ -1,4 +1,5 @@
-﻿using OpenQA.Selenium;
+﻿using System.Diagnostics;
+using OpenQA.Selenium;
 
 namespace NotionBackupTool;
 
@@ -18,6 +19,15 @@ class Program
     
     static async Task Main()
     {
+        // Wait for debugger
+        /*while (!Debugger.IsAttached) // wait here until debugger is attached
+        {
+            Console.WriteLine("Waiting for debugger..");
+            System.Threading.Thread.Sleep(1000); // prevent tight loop
+        }*/
+
+        
+        
         string mode = GetConfig("MODE");
 
         string webDriverEndpoint = GetConfig("WEBDRIVER_URL", "http://localhost:4444");
@@ -104,15 +114,6 @@ class Program
             int ct = 0;
             foreach (Tuple<string, string> urls in downloadUrls)
             {
-                Console.WriteLine($"Processing download #{ct}");
-                var req = new HttpRequestMessage(HttpMethod.Get, urls.Item1);
-                req.Headers.Add("cookie", $"file_token={fileCookieValue}");
-
-                var response = await hc.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
-                response.EnsureSuccessStatusCode();
-
-                string datetime = DateTime.UtcNow.ToString("s").Replace(':', '-');
-                
                 // map workspace
                 string workspaceId = urls.Item2.Split('/').Last();
                 string workspaceName = workspaces.FirstOrDefault(x => x.Id == workspaceId)?.Name ?? String.Empty;
@@ -122,6 +123,17 @@ class Program
                     Console.WriteLine($"Warning: Workspace ID {workspaceId} unknown");
                     workspaceName = workspaceId;
                 }
+                
+                // Start download
+                Console.WriteLine($"Processing download #{ct}");
+                var req = new HttpRequestMessage(HttpMethod.Get, urls.Item1);
+                req.Headers.Add("cookie", $"file_token={fileCookieValue}");
+
+                var response = await hc.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+                response.EnsureSuccessStatusCode();
+
+                string datetime = DateTime.UtcNow.ToString("s").Replace(':', '-');
+                
                 
                 string dlFilename = Path.Combine(temporaryDir, $"notion-{workspaceName}-{datetime}.zip");
                 Console.WriteLine("Downloading...");
