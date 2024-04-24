@@ -190,12 +190,23 @@ internal class NotionWebsitePuppeteer
         Console.WriteLine("Navigate to file URL...");
         _driver.Navigate().GoToUrl($"https://file.notion.so/f/");
         
+        Console.WriteLine("\tSleep 5sec");
+        Thread.Sleep(5000);
+        
         // Wait for return to HackMD
         
         Console.WriteLine("\tGrabbing delicious Cookies...");
         // grab cookies
 
         var cookie = _driver.Manage().Cookies.GetCookieNamed("file_token");
+
+        if (cookie == null)
+        {
+            Console.WriteLine("Unable to grab cookie. Trying again...");
+            Console.WriteLine("\tSleep 5sec");
+            Thread.Sleep(5000);
+            cookie = _driver.Manage().Cookies.GetCookieNamed("file_token");
+        }
         
 
         // Close the driver
