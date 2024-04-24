@@ -56,7 +56,7 @@ internal class MailGrabber
                 break;
             }
 
-            if (!string.IsNullOrEmpty(dlUrl) && !string.IsNullOrEmpty(workspaceUrl))
+            if (!string.IsNullOrEmpty(dlUrl))
             {
                 urls.Add(new Tuple<string, string>(dlUrl, workspaceUrl));
             }
