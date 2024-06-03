@@ -68,7 +68,7 @@ internal class NotionWebsitePuppeteer
             IWebElement loginInput = _driver.FindElement(By.Id("notion-email-input-2"));
             loginInput.SendKeys(_username);
         
-            IWebElement nextBtn = _driver.FindElement(By.XPath("//form/div[contains(text(), 'Continue')]"));
+            IWebElement nextBtn = _driver.FindElement(By.XPath("//form//div[contains(text(), 'Continue')]"));
             nextBtn.Click();
 
             Console.WriteLine("\tSleep 10sec");
@@ -78,7 +78,7 @@ internal class NotionWebsitePuppeteer
             try
             {
                 IWebElement loginCodeBtn =
-                    _driver.FindElement(By.XPath("//form/div[contains(text(), 'Continue with login code')]"));
+                    _driver.FindElement(By.XPath("//form//div[contains(text(), 'Continue with login code')]"));
                 if (loginCodeBtn != null)
                 {
                     needsLoginCode = true;
@@ -133,7 +133,7 @@ internal class NotionWebsitePuppeteer
                 passInput.SendKeys(_password);
 
                 Console.WriteLine("\tSending login...");
-                IWebElement loginBtn = _driver.FindElement(By.XPath("//form/div[contains(text(), 'Continue with password')]"));
+                IWebElement loginBtn = _driver.FindElement(By.XPath("//form//div[contains(text(), 'Continue with password')]"));
                 loginBtn.Click();
             }
             catch

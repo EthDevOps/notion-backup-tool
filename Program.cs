@@ -135,6 +135,7 @@ class Program
                     if (!response.IsSuccessStatusCode)
                     {
                         Console.WriteLine($"Unable to initiate download: [{response.StatusCode}] {response.ReasonPhrase}");
+                        continue;
                     }
 
                     string datetime = DateTime.UtcNow.ToString("s").Replace(':', '-');
