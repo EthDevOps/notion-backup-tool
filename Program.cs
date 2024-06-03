@@ -129,31 +129,41 @@ class Program
                 var req = new HttpRequestMessage(HttpMethod.Get, urls.Item1);
                 req.Headers.Add("cookie", $"file_token={fileCookieValue}");
 
-                var response = await hc.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
-                response.EnsureSuccessStatusCode();
+                try
+                {
+                    var response = await hc.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine($"Unable to initiate download: [{response.StatusCode}] {response.ReasonPhrase}");
+                    }
 
-                string datetime = DateTime.UtcNow.ToString("s").Replace(':', '-');
-                
-                
-                string dlFilename = Path.Combine(temporaryDir, $"notion-{workspaceName}-{datetime}.zip");
-                Console.WriteLine("Downloading...");
-                await using Stream dlStream = await response.Content.ReadAsStreamAsync();
-                await using var fileStream = File.Create(dlFilename);
-                await dlStream.CopyToAsync(fileStream, 1048576);
-                await fileStream.FlushAsync();
-                fileStream.Close();
-                
-                // Encrypt backup
-                FileProcessor fp = new FileProcessor();
-                Console.WriteLine("==> Encrypting...");
-                string encryptedFile = $"{dlFilename}.enc";
-                await fp.EncryptFilePgp(dlFilename,  gpgPublicKey, encryptedFile);
-            
-                // Upload to S3
-                Console.WriteLine("==> Send to S3 storage");
-                var s3 = new S3Uploader(s3Host, s3AccessKey, s3SecretKey, s3Bucket);
-                await s3.UploadFileAsync(encryptedFile);
-                ct++;
+                    string datetime = DateTime.UtcNow.ToString("s").Replace(':', '-');
+
+
+                    string dlFilename = Path.Combine(temporaryDir, $"notion-{workspaceName}-{datetime}.zip");
+                    Console.WriteLine("Downloading...");
+                    await using Stream dlStream = await response.Content.ReadAsStreamAsync();
+                    await using var fileStream = File.Create(dlFilename);
+                    await dlStream.CopyToAsync(fileStream, 1048576);
+                    await fileStream.FlushAsync();
+                    fileStream.Close();
+
+                    // Encrypt backup
+                    FileProcessor fp = new FileProcessor();
+                    Console.WriteLine("==> Encrypting...");
+                    string encryptedFile = $"{dlFilename}.enc";
+                    await fp.EncryptFilePgp(dlFilename, gpgPublicKey, encryptedFile);
+
+                    // Upload to S3
+                    Console.WriteLine("==> Send to S3 storage");
+                    var s3 = new S3Uploader(s3Host, s3AccessKey, s3SecretKey, s3Bucket);
+                    await s3.UploadFileAsync(encryptedFile);
+                    ct++;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Unable to initiate download: {ex.Message}");
+                }
             }
             
             // Purge Emails
