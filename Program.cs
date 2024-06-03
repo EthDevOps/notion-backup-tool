@@ -159,11 +159,14 @@ class Program
                     Console.WriteLine("==> Send to S3 storage");
                     var s3 = new S3Uploader(s3Host, s3AccessKey, s3SecretKey, s3Bucket);
                     await s3.UploadFileAsync(encryptedFile);
-                    ct++;
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Unable to initiate download: {ex.Message}");
+                }
+                finally
+                {
+                    ct++;
                 }
             }
             
