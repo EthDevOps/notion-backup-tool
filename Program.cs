@@ -20,22 +20,24 @@ class Program
     static async Task Main()
     {
         // Wait for debugger
-        /*while (!Debugger.IsAttached) // wait here until debugger is attached
+        bool debugMode = Environment.GetEnvironmentVariable("DEBUG") == "true";
+        if (debugMode)
         {
-            Console.WriteLine("Waiting for debugger..");
-            System.Threading.Thread.Sleep(1000); // prevent tight loop
-        }*/
+            Console.WriteLine("DEBUG ON");
+            while (!Debugger.IsAttached) // wait here until debugger is attached
+            {
+                Console.WriteLine("Waiting for debugger..");
+                System.Threading.Thread.Sleep(1000); // prevent tight loop
+            }
 
+        }
+        
         
         
         string mode = GetConfig("MODE");
 
         string webDriverEndpoint = GetConfig("WEBDRIVER_URL", "http://localhost:4444");
 
-        string s3Host = GetConfig("S3_HOST");
-        string s3AccessKey = GetConfig("S3_ACCESS_KEY");
-        string s3SecretKey = GetConfig("S3_SECRET_KEY");
-        string s3Bucket = GetConfig("S3_BUCKET");
 
         string notionUser = GetConfig("NOTION_USERNAME");
         string notionPassword = GetConfig("NOTION_PASSWORD");
@@ -45,9 +47,6 @@ class Program
         string mailPassword = GetConfig("IMAP_PASSWORD");
         string cachePath = GetConfig("CACHE_PATH");
 
-        string temporaryDir = GetConfig("TMP_DIR");
-        string gpgPublicKey = GetConfig("GPG_PUBKEY_FILE");
-
         List<Workspace> workspaces = GetConfig("WORKSPACES").Split(',').Select(w => w.Split(':')).Select(ws => new Workspace { Name = ws[0], Id = ws[1] }).ToList();
 
 
@@ -56,7 +55,7 @@ class Program
         string hcUrl = GetConfig("HEALTHCHECK_URL");
         await pingHttp.GetAsync($"{hcUrl}/start");
 
-        NotionWebsitePuppeteer grabber = new NotionWebsitePuppeteer(webDriverEndpoint,notionUser, notionPassword)
+        NotionWebsitePuppeteer grabber = new NotionWebsitePuppeteer(webDriverEndpoint,notionUser, notionPassword, debugMode)
             {
                 MailHost = mailHost,
                 MailUser = mailUser,
@@ -65,6 +64,13 @@ class Program
         
         if (mode == "download")
         {
+            string temporaryDir = GetConfig("TMP_DIR");
+            string gpgPublicKey = GetConfig("GPG_PUBKEY_FILE");
+            string s3Host = GetConfig("S3_HOST");
+            string s3AccessKey = GetConfig("S3_ACCESS_KEY");
+            string s3SecretKey = GetConfig("S3_SECRET_KEY");
+            string s3Bucket = GetConfig("S3_BUCKET");
+
             string cookieCachePath = Path.Combine(cachePath, "filecookie.txt");
             string fileCookieValue;
 

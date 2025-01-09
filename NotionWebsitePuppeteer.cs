@@ -11,16 +11,17 @@ internal class NotionWebsitePuppeteer
     private IWebDriver _driver;
     private readonly string _username;
     private readonly string _password;
+    private readonly bool _debugMode;
 
     public string MailHost { get; set; }
     public string MailUser { get; set; }
     public string MailPassword { get; set; }
-    public NotionWebsitePuppeteer(string seleniumHost, string notionUsername, string notionPassword)
+    public NotionWebsitePuppeteer(string seleniumHost, string notionUsername, string notionPassword, bool debugMode = false)
     {
         _seleniumHost = seleniumHost;
         _username = notionUsername;
         _password = notionPassword;
-
+        _debugMode = debugMode;
     }
 
     private void Login()
@@ -78,7 +79,7 @@ internal class NotionWebsitePuppeteer
             try
             {
                 IWebElement loginCodeBtn =
-                    _driver.FindElement(By.XPath("//form//div[contains(text(), 'Continue with login code')]"));
+                    _driver.FindElement(By.XPath("//form//label[contains(text(), 'Verification code')]"));
                 if (loginCodeBtn != null)
                 {
                     needsLoginCode = true;
@@ -97,8 +98,14 @@ internal class NotionWebsitePuppeteer
         var options = new ChromeOptions();
         options.AddArgument("--headless=new");
 
-        _driver = new RemoteWebDriver(new Uri(_seleniumHost), options);
-        //_driver = new ChromeDriver();
+        if (_debugMode)
+        {
+            _driver = new ChromeDriver();
+        }
+        else
+        {
+            _driver = new RemoteWebDriver(new Uri(_seleniumHost), options);
+        }
         WebDriverWait wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(120));
 
         bool needsLoginCode = FirstLoginStep();
@@ -153,26 +160,33 @@ internal class NotionWebsitePuppeteer
 
         foreach (string ws in workspaceSlug)
         {
-            Thread.Sleep(10000);
-            Console.WriteLine($"Navigate to workspace {ws}...");
-            _driver.Navigate().GoToUrl($"https://notion.so/{ws}");
-            
-            Thread.Sleep(5000);
-            Console.WriteLine("Navigating to Export button...");
-            IWebElement nextBtn = _driver.FindElement(By.XPath("//nav//div[contains(text(), 'Settings')]"));
-            nextBtn.Click();
-            
-            Thread.Sleep(3000);
-            _driver.FindElement(By.XPath("//div[text() = 'Settings']")).Click();
-            
-            Thread.Sleep(3000);
-            _driver.FindElement(By.XPath("//div[text() = 'Export all workspace content']")).Click();
-            
-            Thread.Sleep(3000);
-            Console.WriteLine("Trigger Export...");
-            _driver.FindElement(By.XPath("//div[text() = 'Export']")).Click();
+            try
+            {
+                Thread.Sleep(10000);
+                Console.WriteLine($"Navigate to workspace {ws}...");
+                _driver.Navigate().GoToUrl($"https://notion.so/{ws}");
 
-            Console.WriteLine($"Export running for {ws}");
+                Thread.Sleep(5000);
+                Console.WriteLine("Navigating to Export button...");
+                IWebElement nextBtn = _driver.FindElement(By.XPath("//nav//div[contains(text(), 'Settings')]"));
+                nextBtn.Click();
+
+                Thread.Sleep(3000);
+                _driver.FindElement(By.XPath("//div[@class='notion-space-settings']//div[text() = 'Settings']")).Click();
+
+                Thread.Sleep(3000);
+                _driver.FindElement(By.XPath("//div[@class='notion-space-settings']//div[text() = 'Export all workspace content']")).Click();
+
+                Thread.Sleep(3000);
+                Console.WriteLine("Trigger Export...");
+                _driver.FindElement(By.XPath("//div[@class='notion-dialog']//div[text() = 'Export']")).Click();
+
+                Console.WriteLine($"Export running for {ws}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error triggering export for workspace {ws}: {ex.Message}");
+            }
         }
       
         // sleeping to let export init
