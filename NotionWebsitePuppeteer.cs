@@ -50,8 +50,10 @@ internal class NotionWebsitePuppeteer
 
             }
 
-            Console.WriteLine("Logging in using URL...");
-            _driver.Navigate().GoToUrl(loginUrl);
+            Console.WriteLine("Logging in using URL in 30sec...");
+            Thread.Sleep(30000);
+            string cleanedUrl = loginUrl.Replace("https://","https").Replace("&amp;", "&").Replace(":", "%3A").Replace("https","https://");
+            _driver.Navigate().GoToUrl(cleanedUrl);
             Thread.Sleep(5000);
         }
 
