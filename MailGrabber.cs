@@ -17,7 +17,7 @@ internal class MailGrabber
         _password = password;
     }
     
-    internal List<Tuple<string,string>> FindUrl(string sender, string regexPatternDownload, string regexPatternWorkspace)
+    internal async Task<List<Tuple<string, string>>> FindUrl(string sender, string regexPatternDownload, string regexPatternWorkspace, string subjectFilter = "")
     {
         using var client = new ImapClient();
         client.ServerCertificateValidationCallback = (s, c, h, e) => true;
@@ -34,10 +34,16 @@ internal class MailGrabber
                 
             if((message.From[0] as MailboxAddress)?.Address != sender)
                 continue;
-                
-            string body = message.HtmlBody;
 
-            // Regex to extract URLs
+            if (!string.IsNullOrEmpty(subjectFilter) && !message.Subject.Contains(subjectFilter))
+            {
+                continue;
+            }
+            
+            string body = message.HtmlBody;
+            
+
+            // Regex to directly extract URLs
             var regexDl = new Regex(regexPatternDownload, RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline );
             var regexWorkspace = new Regex(regexPatternWorkspace, RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline );
 
@@ -60,9 +66,74 @@ internal class MailGrabber
             {
                 urls.Add(new Tuple<string, string>(dlUrl, workspaceUrl));
             }
+            
+            // Extract mailgun URLs
+            // Regex pattern to find all links for the domain mg.mail.notion.so
+            string pattern = @"<a[^>]*href=""(?<url>https:\/\/mg\.mail\.notion\.so[^""]+)""[^>]*>[^<]*<\/a>";
+
+            List<string> links = new List<string>();
+
+            // Extract all matching links
+            MatchCollection matches = Regex.Matches(body, pattern);
+            foreach (Match match in matches)
+            {
+                links.Add(match.Groups["url"].Value);
+            }
+
+            // Perform GET requests and extract the Location header
+            // added here
+            HttpClientHandler httpClientHandler = new HttpClientHandler();
+            httpClientHandler.AllowAutoRedirect = false;
+            using HttpClient hc = new HttpClient(httpClientHandler);
+            string dlUrl2 = String.Empty;
+            string workspaceUrl2 = String.Empty;
+            
+            foreach (var link in links)
+            {
+                try
+                {
+                    // Set the HttpClient to follow redirects
+                    hc.DefaultRequestHeaders.Clear();
+                    var response = await hc.GetAsync(link);
+
+                    // Check if the response is a redirect
+                    if (response.StatusCode == System.Net.HttpStatusCode.MovedPermanently ||
+                        response.StatusCode == System.Net.HttpStatusCode.Found ||
+                        response.StatusCode == System.Net.HttpStatusCode.SeeOther)
+                    {
+                        // Extract the Location header
+                        if (response.Headers.Location != null)
+                        {
+                            string actualLink = response.Headers.Location.ToString();
+                            if (regexDl.Match(actualLink).Success)
+                            {
+                                dlUrl2 = actualLink;
+                            }
+                            if (regexWorkspace.Match(actualLink).Success)
+                            {
+                                workspaceUrl2 = actualLink;
+                            }
+
+                                
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("No redirect for URL: " + link);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error fetching {link}: {ex.Message}");
+                }
+            }
+            if (!string.IsNullOrEmpty(dlUrl2))
+            {
+                urls.Add(new Tuple<string, string>(dlUrl2, workspaceUrl2));
+            }
         }
 
-        client.Disconnect(true);
+        await client.DisconnectAsync(true);
 
         return urls;
 

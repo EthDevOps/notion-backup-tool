@@ -109,8 +109,8 @@ class Program
             // Look in Mail inbox for completed exports
             Console.WriteLine("Checking emails...");
             MailGrabber mail = new MailGrabber(mailHost, mailUser, mailPassword);
-            List<Tuple<string, string>> downloadUrls = mail.FindUrl("export-noreply@mail.notion.so", @"https://file\.notion\.so/.+\.zip","https://www\\.notion\\.so/space/[a-z0-9]+");
-            downloadUrls.AddRange(mail.FindUrl("notify@mail.notion.so", @"https://file\.notion\.so/.+\.zip","https://www\\.notion\\.so/space/[a-z0-9]+"));
+            List<Tuple<string, string>> downloadUrls = mail.FindUrl("export-noreply@mail.notion.so", @"https://file\.notion\.so/.+\.zip","https://www\\.notion\\.so/space/[a-z0-9]+","export").Result;
+            downloadUrls.AddRange(mail.FindUrl("notify@mail.notion.so", @"https://file\.notion\.so/.+\.zip","https://www\\.notion\\.so/space/[a-z0-9]+","export").Result);
 
             // Download the exports using the session cookies
 
@@ -121,7 +121,7 @@ class Program
             foreach (Tuple<string, string> urls in downloadUrls)
             {
                 // map workspace
-                string workspaceId = urls.Item2.Split('/').Last();
+                string workspaceId = urls.Item2.Split('/').Last().Split('?')[0];
                 string workspaceName = workspaces.FirstOrDefault(x => x.Id == workspaceId)?.Name ?? String.Empty;
 
                 if (string.IsNullOrEmpty(workspaceName))
