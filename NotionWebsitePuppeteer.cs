@@ -170,11 +170,11 @@ internal class NotionWebsitePuppeteer
 
                 Thread.Sleep(5000);
                 Console.WriteLine("Navigating to Export button...");
-                IWebElement nextBtn = _driver.FindElement(By.XPath("//nav//div[contains(text(), 'Settings')]"));
+                IWebElement nextBtn = _driver.FindElement(By.XPath("//div[@class='notion-sidebar']//div[contains(text(), 'Settings')]"));
                 nextBtn.Click();
 
                 Thread.Sleep(3000);
-                _driver.FindElement(By.XPath("//div[@class='notion-space-settings']//div[text() = 'Settings']")).Click();
+                _driver.FindElement(By.XPath("//div[@class='notion-space-settings']//div[text() = 'General']")).Click();
 
                 Thread.Sleep(3000);
                 _driver.FindElement(By.XPath("//div[@class='notion-space-settings']//div[text() = 'Export all workspace content']")).Click();
