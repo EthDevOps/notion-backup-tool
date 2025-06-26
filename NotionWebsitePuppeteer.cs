@@ -68,7 +68,7 @@ internal class NotionWebsitePuppeteer
             Thread.Sleep(2500);
             // Login to GitHub
             Console.WriteLine("\tEntering credentials...");
-            IWebElement loginInput = _driver.FindElement(By.Id("notion-email-input-2"));
+            IWebElement loginInput = _driver.FindElement(By.Id("notion-email-input-1"));
             loginInput.SendKeys(_username);
         
             IWebElement nextBtn = _driver.FindElement(By.XPath("//form//div[contains(text(), 'Continue')]"));
@@ -138,7 +138,7 @@ internal class NotionWebsitePuppeteer
             Console.WriteLine("Trying password login...");
             try
             {
-                IWebElement passInput = _driver.FindElement(By.Id("notion-password-input-1"));
+                IWebElement passInput = _driver.FindElement(By.Id("notion-password-input-2"));
                 passInput.SendKeys(_password);
 
                 Console.WriteLine("\tSending login...");
